@@ -167,29 +167,75 @@ class _HomePageState extends State<HomePage> {
                     if (items.isEmpty) {
                       return Card(
                         child: ListTile(
-                            title: Center(
-                                child: Text('Deine Einkaufsliste ist leer'))),
+                          title: Center(
+                            child: Text(
+                                'Deine Einkaufsliste ist leer\n\nEinen neuen Eintag kannst du unten rechts hinzufügen, dort findest du auch einen Knopf für Spracheingabe und Liste löschen\n\nEinen Eintrag kannst du entfernen, wenn du auf einen Eintrag gedrückt hälst und auf entfernen klickst\n\nAußerdem kannst du dann rechts über das Icon die Reihenfolge der Einträge ändern'),
+                          ),
+                          onLongPress: () {
+                            showModalBottomSheet(
+                                context: context,
+                                builder: (context) {
+                                  return Card(
+                                      child: ListTile(
+                                    title: Text(
+                                        'Du kannst den Standardeintrag nicht löschen'),
+                                  ));
+                                });
+                          },
+                        ),
                       );
                     } else {
                       return Expanded(
-                        child: ListView.builder(
+                        child: ReorderableListView.builder(
+                          buildDefaultDragHandles: false,
                           itemCount: items.length,
                           itemBuilder: ((context, index) {
                             final item = items[index];
                             return Card(
+                              key: Key('$index'),
                               child: ListTile(
-                                  title: Text(
-                                    item,
-                                    style: TextStyle(fontSize: 14),
-                                  ),
-                                  trailing: IconButton(
-                                    icon: Icon(Icons.clear),
-                                    onPressed: () {
-                                      _showDialog(context, index, item);
-                                    },
-                                  )),
+                                title: Text(
+                                  item,
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                                trailing: ReorderableDragStartListener(
+                                    index: index,
+                                    child: const Icon(Icons.menu)),
+                                onLongPress: () {
+                                  showModalBottomSheet(
+                                      context: context,
+                                      builder: (context) {
+                                        return Card(
+                                            child: ListTile(
+                                          title: Text(
+                                            'Entfernen',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                          onTap: () {
+                                            items.removeAt(index);
+                                            Preferences.setEinkaufsListe(items);
+                                            Navigator.pop(context);
+                                            setState(() {
+                                              _futureBuilderKey = UniqueKey();
+                                            });
+                                          },
+                                        ));
+                                      });
+                                },
+                              ),
                             );
                           }),
+                          onReorder: (oldIndex, newIndex) {
+                            setState(() {
+                              if (oldIndex < newIndex) {
+                                newIndex -= 1;
+                              }
+                              final String item = items.removeAt(oldIndex);
+                              items.insert(newIndex, item);
+                              Preferences.setEinkaufsListe(items);
+                              _futureBuilderKey = UniqueKey();
+                            });
+                          },
                         ),
                       );
                     }
@@ -297,37 +343,6 @@ class _HomePageState extends State<HomePage> {
                 }
               },
               child: Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showDialog(BuildContext context, int index, String item) async {
-    return showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Möchtest du $item entfernen?',
-              style: TextStyle(fontSize: 15)),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text('NEIN'),
-            ),
-            TextButton(
-              onPressed: () {
-                items.removeAt(index);
-                Preferences.setEinkaufsListe(items);
-                Navigator.pop(context);
-                setState(() {
-                  _futureBuilderKey = UniqueKey();
-                });
-              },
-              child: Text('JA'),
             ),
           ],
         );
