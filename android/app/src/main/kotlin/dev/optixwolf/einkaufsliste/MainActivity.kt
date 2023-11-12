@@ -1,4 +1,4 @@
-package dev.optixwolf.einkaufsliste.einkaufsliste
+package dev.optixwolf.einkaufsliste
 
 import io.flutter.embedding.android.FlutterActivity
 
