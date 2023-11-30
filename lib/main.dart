@@ -1,8 +1,12 @@
 // ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+
+bool showReorganizer = false;
 
 Future<void> main() async {
   //WidgetsFlutterBinding.ensureInitialized();
@@ -131,6 +135,21 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void setClipboardText(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+  }
+
+  void _showSnackbar(BuildContext context) {
+    final scaffold = ScaffoldMessenger.of(context);
+    scaffold.showSnackBar(
+      SnackBar(
+        content: const Text('Inhalt wurde in die Zwischenablage gespeichert'),
+        action: SnackBarAction(
+            label: 'OK', onPressed: scaffold.hideCurrentSnackBar),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -193,35 +212,64 @@ class _HomePageState extends State<HomePage> {
                             final item = items[index];
                             return Card(
                               key: Key('$index'),
-                              child: ListTile(
-                                title: Text(
-                                  item,
-                                  style: TextStyle(fontSize: 14),
+                              child: Slidable(
+                                key: Key('$index'),
+                                startActionPane: ActionPane(
+                                  extentRatio: 0.4,
+                                  motion: const BehindMotion(),
+                                  children: [
+                                    SlidableAction(
+                                      onPressed: (context) {
+                                        _showEditDialog(context, index);
+                                      },
+                                      backgroundColor: Colors.blue,
+                                      icon: Icons.edit,
+                                      borderRadius: BorderRadius.only(
+                                          topLeft: Radius.circular(10),
+                                          bottomLeft: Radius.circular(10)),
+                                    ),
+                                    SlidableAction(
+                                      onPressed: (context) {
+                                        items.removeAt(index);
+                                        Preferences.setEinkaufsListe(items);
+                                        setState(() {
+                                          _futureBuilderKey = UniqueKey();
+                                        });
+                                      },
+                                      backgroundColor: Colors.red,
+                                      icon: Icons.delete,
+                                    ),
+                                  ],
                                 ),
-                                trailing: ReorderableDragStartListener(
-                                    index: index,
-                                    child: const Icon(Icons.menu)),
-                                onLongPress: () {
-                                  showModalBottomSheet(
-                                      context: context,
-                                      builder: (context) {
-                                        return Card(
-                                            child: ListTile(
-                                          title: Text(
-                                            'Entfernen',
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                          onTap: () {
-                                            items.removeAt(index);
-                                            Preferences.setEinkaufsListe(items);
-                                            Navigator.pop(context);
-                                            setState(() {
-                                              _futureBuilderKey = UniqueKey();
-                                            });
-                                          },
-                                        ));
-                                      });
-                                },
+                                child: Column(
+                                  children: [
+                                    Visibility(
+                                      visible: showReorganizer,
+                                      child: ListTile(
+                                        contentPadding:
+                                            EdgeInsets.only(left: 21),
+                                        title: Text(
+                                          item,
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                        leading: ReorderableDragStartListener(
+                                            index: index,
+                                            child: const Icon(Icons.menu)),
+                                      ),
+                                    ),
+                                    Visibility(
+                                      visible: !showReorganizer,
+                                      child: ListTile(
+                                        contentPadding:
+                                            EdgeInsets.only(left: 24),
+                                        title: Text(
+                                          item,
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           }),
@@ -286,10 +334,23 @@ class _HomePageState extends State<HomePage> {
                 ),
                 FloatingActionButton(
                   onPressed: () {
+                    showReorganizer = !showReorganizer;
+                    setState(() {
+                      _futureBuilderKey = UniqueKey();
+                    });
+                  },
+                  heroTag: null,
+                  child: Icon(Icons.menu),
+                ),
+                SizedBox(
+                  height: 10,
+                ),
+                FloatingActionButton(
+                  onPressed: () {
                     _showClearDialog(context);
                   },
                   heroTag: null,
-                  child: Icon(Icons.clear_all),
+                  child: Icon(Icons.delete_sweep),
                 ),
                 SizedBox(
                   height: 10,
@@ -333,6 +394,48 @@ class _HomePageState extends State<HomePage> {
               onPressed: () {
                 if (textFieldController.text != "") {
                   items.add(textFieldController.text);
+                  Preferences.setEinkaufsListe(items);
+                  Navigator.pop(context);
+                  setState(() {
+                    _futureBuilderKey = UniqueKey();
+                  });
+                } else {
+                  Navigator.pop(context);
+                }
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showEditDialog(BuildContext context, int index) async {
+    TextEditingController textFieldController =
+        TextEditingController(text: items[index]);
+
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Wie möchtest du es ändern?',
+              style: TextStyle(fontSize: 20)),
+          content: TextField(
+            controller: textFieldController,
+            decoration: InputDecoration(hintText: 'Gib hier etwas ein'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text('Abbrechen'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (textFieldController.text != "") {
+                  items[index] = textFieldController.text;
                   Preferences.setEinkaufsListe(items);
                   Navigator.pop(context);
                   setState(() {
