@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
 import 'dart:async';
+import 'package:Einkaufsliste/database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,7 +42,17 @@ class MyApp extends StatelessWidget {
 
 class Preferences {
   static const String themeModeKey = 'themeMode';
-  static const String einkaufsKey = 'einkaufsItems';
+
+  static Future<bool> getPref(String key) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final bool value = prefs.getBool(key) ?? true;
+    return value;
+  }
+
+  static Future<void> setPref(String key, bool value) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  }
 
   static Future<ThemeMode> getThemeMode() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -54,15 +65,15 @@ class Preferences {
     await prefs.setInt(themeModeKey, themeMode.index);
   }
 
-  static Future<List<String>> getEinkaufsListe() async {
+  static Future<List<String>> getPrefStringList(String key) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final List<String> einkaufsValue = prefs.getStringList(einkaufsKey) ?? [];
-    return einkaufsValue;
+    final List<String> value = prefs.getStringList(key) ?? [];
+    return value;
   }
 
-  static Future<void> setEinkaufsListe(List<String> einkaufsValue) async {
+  static Future<void> setPrefStringList(String key, List<String> value) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(einkaufsKey, einkaufsValue);
+    await prefs.setStringList(key, value);
   }
 }
 
@@ -79,12 +90,18 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   Key _futureBuilderKey = UniqueKey();
   List<String> items = [];
+  List<Map<String, dynamic>> items_online = [];
   bool isExpanded = false;
+  bool onlineMode = false;
 
   @override
   void initState() {
     super.initState();
     speechToText = SpeechToText();
+
+    Preferences.getPref('online_mode').then((value) {
+      onlineMode = value;
+    });
   }
 
   Future<void> _startListening() async {
@@ -111,9 +128,19 @@ class _HomePageState extends State<HomePage> {
                 List<String> newItems = result.recognizedWords.split(' und ');
 
                 for (int i = 0; i < newItems.length; i++) {
-                  items.add(newItems[i]);
+                  if(onlineMode)
+                  {
+                    DatabaseService().executeQuery('INSERT INTO items(item) VALUES("${newItems[i]}")');
+                  }
+                  else
+                  {
+                    items.add(newItems[i]);
+                  }
                 }
-                Preferences.setEinkaufsListe(items);
+                if(!onlineMode)
+                {
+                Preferences.setPrefStringList('einkaufsliste', items);
+                }
                 setState(() {
                   _futureBuilderKey = UniqueKey();
                 });
@@ -139,11 +166,11 @@ class _HomePageState extends State<HomePage> {
     Clipboard.setData(ClipboardData(text: text));
   }
 
-  void _showSnackbar(BuildContext context) {
+  void _showSnackbar(BuildContext context, String content) {
     final scaffold = ScaffoldMessenger.of(context);
     scaffold.showSnackBar(
       SnackBar(
-        content: const Text('Inhalt wurde in die Zwischenablage gespeichert'),
+        content: Text(content),
         action: SnackBarAction(
             label: 'OK', onPressed: scaffold.hideCurrentSnackBar),
       ),
@@ -156,7 +183,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(toolbarHeight: 15),
       body: FutureBuilder(
         key: _futureBuilderKey,
-        future: Preferences.getEinkaufsListe(),
+        future: Preferences.getPrefStringList('einkaufsliste'),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return Center(
@@ -166,6 +193,139 @@ class _HomePageState extends State<HomePage> {
 
           items = snapshot.data!;
 
+          if(onlineMode)
+          {
+            return FutureBuilder(
+              key: _futureBuilderKey,
+              future: DatabaseService().executeQuery('SELECT * FROM items'),
+              builder:(context, snapshot) {
+
+              if (!snapshot.hasData) {
+                return Center(
+                    child: CircularProgressIndicator(),
+                  );
+              }
+
+              items_online = snapshot.data!;
+                
+              return Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  SizedBox(width: 7),
+                  Text('Einkaufsliste (online)', style: TextStyle(fontSize: 35)),
+                  Spacer(),
+                  ThemedIconButton(),
+                  SizedBox(
+                    width: 10,
+                  )
+                ]),
+                SizedBox(height: 30),
+                Builder(
+                  builder: (context) {
+                    if (items_online.isEmpty) {
+                      return Card(
+                        child: ListTile(
+                          title: Center(
+                            child: Text('Deine Einkaufsliste ist leer'),
+                          ), 
+                          onLongPress: () {
+                            showModalBottomSheet(
+                                context: context,
+                                builder: (context) {
+                                  return Card(
+                                      child: ListTile(
+                                    title: Text(
+                                        'Du kannst den Standardeintrag nicht löschen'),
+                                  ));
+                                });
+                          },
+                        ),
+                      );
+                    } else {
+                      return Expanded(
+                        child: ListView.builder(
+                          itemCount: items_online.length,
+                          itemBuilder: ((context, index) {
+                            final item = items_online[index];
+                            return Card(
+                              key: Key('$index'),
+                              child: Slidable(
+                                key: Key('$index'),
+                                startActionPane: ActionPane(
+                                  extentRatio: 0.4,
+                                  motion: const BehindMotion(),
+                                  children: [
+                                    SlidableAction(
+                                      onPressed: (context) {
+                                        int id = int.parse(items_online.elementAt(index)['item_id']);
+                                        _showEditDialog(context, id);
+                                      },
+                                      backgroundColor: Colors.blue,
+                                      icon: Icons.edit,
+                                      borderRadius: BorderRadius.only(
+                                          topLeft: Radius.circular(10),
+                                          bottomLeft: Radius.circular(10)),
+                                    ),
+                                    SlidableAction(
+                                      onPressed: (context) {
+                                        var id = items_online.elementAt(index)['item_id'];
+                                        DatabaseService().executeQuery('DELETE FROM items WHERE item_id = $id');
+                                        setState(() {
+                                          _futureBuilderKey = UniqueKey();
+                                        });
+                                      },
+                                      backgroundColor: Colors.red,
+                                      icon: Icons.delete,
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  children: [
+                                    Visibility(
+                                      visible: showReorganizer,
+                                      child: ListTile(
+                                        contentPadding:
+                                            EdgeInsets.only(left: 21),
+                                        title: Text(
+                                          item['item'],
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                        leading: ReorderableDragStartListener(
+                                            index: index,
+                                            child: const Icon(Icons.menu)),
+                                      ),
+                                    ),
+                                    Visibility(
+                                      visible: !showReorganizer,
+                                      child: ListTile(
+                                        contentPadding:
+                                            EdgeInsets.only(left: 24),
+                                        title: Text(
+                                          item['item'],
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          );
+            });
+          }
+          else
+          {
           return Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
@@ -173,7 +333,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Row(children: [
                   SizedBox(width: 7),
-                  Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
+                  Text('Einkaufsliste (offline)', style: TextStyle(fontSize: 35)),
                   Spacer(),
                   ThemedIconButton(),
                   SizedBox(
@@ -187,9 +347,8 @@ class _HomePageState extends State<HomePage> {
                       return Card(
                         child: ListTile(
                           title: Center(
-                            child: Text(
-                                'Deine Einkaufsliste ist leer\n\nEinen neuen Eintag kannst du unten rechts hinzufügen, dort findest du auch einen Knopf für Spracheingabe und Liste löschen\n\nEinen Eintrag kannst du entfernen, wenn du auf einen Eintrag gedrückt hälst und auf entfernen klickst\n\nAußerdem kannst du dann rechts über das Icon die Reihenfolge der Einträge ändern'),
-                          ),
+                            child: Text('Deine Einkaufsliste ist leer'),
+                          ), 
                           onLongPress: () {
                             showModalBottomSheet(
                                 context: context,
@@ -231,7 +390,7 @@ class _HomePageState extends State<HomePage> {
                                     SlidableAction(
                                       onPressed: (context) {
                                         items.removeAt(index);
-                                        Preferences.setEinkaufsListe(items);
+                                        Preferences.setPrefStringList('einkaufsliste', items);
                                         setState(() {
                                           _futureBuilderKey = UniqueKey();
                                         });
@@ -280,7 +439,7 @@ class _HomePageState extends State<HomePage> {
                               }
                               final String item = items.removeAt(oldIndex);
                               items.insert(newIndex, item);
-                              Preferences.setEinkaufsListe(items);
+                              Preferences.setPrefStringList('einkaufsliste', items);
                               _futureBuilderKey = UniqueKey();
                             });
                           },
@@ -292,6 +451,7 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           );
+          }
         },
       ),
       floatingActionButton:
@@ -334,10 +494,20 @@ class _HomePageState extends State<HomePage> {
                 ),
                 FloatingActionButton(
                   onPressed: () {
-                    showReorganizer = !showReorganizer;
-                    setState(() {
-                      _futureBuilderKey = UniqueKey();
-                    });
+
+                    if(onlineMode)
+                    {
+                      _showSnackbar(context, 'Das funktioniert nur im Offline Modus');
+                    }
+                    else
+                    {
+                      showReorganizer = !showReorganizer;
+                      setState(() {
+                        _futureBuilderKey = UniqueKey();
+                      });
+                    }
+
+                    
                   },
                   heroTag: null,
                   child: Icon(Icons.menu),
@@ -351,6 +521,19 @@ class _HomePageState extends State<HomePage> {
                   },
                   heroTag: null,
                   child: Icon(Icons.delete_sweep),
+                ),
+                SizedBox(
+                  height: 10,
+                ),
+                FloatingActionButton(
+                  onPressed: () {
+                    setState(() {
+                      onlineMode = !onlineMode;
+                      Preferences.setPref('online_mode', onlineMode);
+                    });
+                  },
+                  heroTag: null,
+                  child: Icon(onlineMode ? Icons.signal_wifi_4_bar : Icons.signal_wifi_0_bar),
                 ),
                 SizedBox(
                   height: 10,
@@ -393,8 +576,15 @@ class _HomePageState extends State<HomePage> {
             TextButton(
               onPressed: () {
                 if (textFieldController.text != "") {
-                  items.add(textFieldController.text);
-                  Preferences.setEinkaufsListe(items);
+                  if(onlineMode)
+                  {
+                    DatabaseService().executeQuery('INSERT INTO items(item) VALUES("${textFieldController.text}")');
+                  }
+                  else
+                  {
+                    items.add(textFieldController.text);
+                    Preferences.setPrefStringList('einkaufsliste', items);
+                  }
                   Navigator.pop(context);
                   setState(() {
                     _futureBuilderKey = UniqueKey();
@@ -412,8 +602,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _showEditDialog(BuildContext context, int index) async {
-    TextEditingController textFieldController =
+    TextEditingController textFieldController;
+    if(onlineMode)
+    {
+      var item = items_online.firstWhere((element) => element['item_id'] == index.toString());
+      textFieldController =
+        TextEditingController(text: item['item']);
+    }
+    else
+    {
+      textFieldController =
         TextEditingController(text: items[index]);
+    }
 
     return showDialog(
       context: context,
@@ -435,8 +635,15 @@ class _HomePageState extends State<HomePage> {
             TextButton(
               onPressed: () {
                 if (textFieldController.text != "") {
-                  items[index] = textFieldController.text;
-                  Preferences.setEinkaufsListe(items);
+                  if(onlineMode)
+                  {
+                    DatabaseService().executeQuery('UPDATE items SET item = "${textFieldController.text}" WHERE item_id = $index');
+                  }
+                  else
+                  {
+                    items[index] = textFieldController.text;
+                    Preferences.setPrefStringList('einkaufsliste', items);
+                  }
                   Navigator.pop(context);
                   setState(() {
                     _futureBuilderKey = UniqueKey();
@@ -469,7 +676,14 @@ class _HomePageState extends State<HomePage> {
             ),
             TextButton(
               onPressed: () {
-                Preferences.setEinkaufsListe([]);
+                if(onlineMode)
+                {
+                  DatabaseService().executeQuery('DELETE FROM items');
+                }
+                else
+                {
+                  Preferences.setPrefStringList('einkaufsliste', []);
+                }
                 Navigator.pop(context);
                 setState(() {
                   _futureBuilderKey = UniqueKey();

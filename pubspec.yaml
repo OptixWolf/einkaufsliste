@@ -3,7 +3,7 @@ description: Eine App, die dir beim einkaufen hilft.
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 1.0.1
+version: 2.0.0
 
 environment:
   sdk: ^3.1.1
@@ -13,8 +13,11 @@ dependencies:
     sdk: flutter
 
   flutter_slidable: ^3.0.1
+  http: ^1.2.2
+  mysql_client: ^0.0.27
   shared_preferences: ^2.2.2
   speech_to_text: ^6.4.0
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

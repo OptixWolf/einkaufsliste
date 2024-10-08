@@ -1,10 +1,12 @@
 # Einkaufsliste
 
-[![version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/OptixWolf/einkaufsliste/releases/latest)
-[![](https://img.shields.io/github/downloads/OptixWolf/einkaufsliste/total)](https://github.com/OptixWolf/einkaufsliste/releases/latest)
+![version](https://img.shields.io/badge/version-1.0.0-blue)
+![](https://img.shields.io/github/downloads/OptixWolf/einkaufsliste/total)
 
 ## Deutsch
+
 Eine einfache Einkaufsliste mit den folgenden Funktionen
+
 - Dunkler und heller Modus
 - Hinzufügen über Text und Sprache zu Text (stt)
 - Gleichzeitiges Hinzufügen mehrerer Einträge mit Sprache zu Text (Trennzeichen "und")
@@ -13,7 +15,9 @@ Eine einfache Einkaufsliste mit den folgenden Funktionen
 - Alles löschen
 
 ## English
+
 A simple shopping list with the following functions
+
 - Dark and light mode
 - Add via text and speech to text (stt)
 - Add several entries at the same time with language to text (separator "und")
