@@ -217,8 +217,12 @@ class _HomePageState extends State<HomePage> {
                   SizedBox(width: 7),
                   Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
                   Spacer(),
-                  Icon(Icons.cloud),
-                  SizedBox(width: 10),
+                  IconButton(icon: Icon(Icons.cloud), iconSize: 35, onPressed: () {
+                    setState(() {
+                      onlineMode = !onlineMode;
+                      Preferences.setPref('online_mode', onlineMode);
+                    });
+                  }),
                   ThemedIconButton(),
                   SizedBox(
                     width: 10,
@@ -337,8 +341,12 @@ class _HomePageState extends State<HomePage> {
                   SizedBox(width: 7),
                   Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
                   Spacer(),
-                  Icon(Icons.cloud_off),
-                  SizedBox(width: 10),
+                  IconButton(icon: Icon(Icons.cloud_off), iconSize: 35, onPressed: () {
+                    setState(() {
+                      onlineMode = !onlineMode;
+                      Preferences.setPref('online_mode', onlineMode);
+                    });
+                  }),
                   ThemedIconButton(),
                   SizedBox(
                     width: 10,
@@ -525,19 +533,6 @@ class _HomePageState extends State<HomePage> {
                   },
                   heroTag: null,
                   child: Icon(Icons.delete_sweep),
-                ),
-                SizedBox(
-                  height: 10,
-                ),
-                FloatingActionButton(
-                  onPressed: () {
-                    setState(() {
-                      onlineMode = !onlineMode;
-                      Preferences.setPref('online_mode', onlineMode);
-                    });
-                  },
-                  heroTag: null,
-                  child: Icon(onlineMode ? Icons.signal_wifi_4_bar : Icons.signal_wifi_0_bar),
                 ),
                 SizedBox(
                   height: 10,
