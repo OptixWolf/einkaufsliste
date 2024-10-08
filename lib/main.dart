@@ -215,8 +215,10 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Row(children: [
                   SizedBox(width: 7),
-                  Text('Einkaufsliste (online)', style: TextStyle(fontSize: 35)),
+                  Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
                   Spacer(),
+                  Icon(Icons.cloud),
+                  SizedBox(width: 10),
                   ThemedIconButton(),
                   SizedBox(
                     width: 10,
@@ -333,8 +335,10 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Row(children: [
                   SizedBox(width: 7),
-                  Text('Einkaufsliste (offline)', style: TextStyle(fontSize: 35)),
+                  Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
                   Spacer(),
+                  Icon(Icons.cloud_off),
+                  SizedBox(width: 10),
                   ThemedIconButton(),
                   SizedBox(
                     width: 10,
