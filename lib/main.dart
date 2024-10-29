@@ -93,6 +93,8 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> items_online = [];
   bool isExpanded = false;
   bool onlineMode = false;
+  List<String> onlineCacheList = [];
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -101,6 +103,10 @@ class _HomePageState extends State<HomePage> {
 
     Preferences.getPref('online_mode').then((value) {
       onlineMode = value;
+    });
+
+    Preferences.getPrefStringList('ocl').then((value) {
+      onlineCacheList = value;
     });
   }
 
@@ -201,11 +207,39 @@ class _HomePageState extends State<HomePage> {
               builder:(context, snapshot) {
 
               if (!snapshot.hasData) {
+
+                Future.delayed(Duration(seconds: 3), () {
+                  setState(() {
+                    isLoading = false;
+                  });
+                });
+
                 return Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                          CircularProgressIndicator(),
+                          
+                          isLoading ? Container() : Column(children: [
+                            Text('Kein Internet?\nLade die Cache oder wechsel in den Offline Modus!'),
+                          SizedBox(height: 15),
+                          Visibility(
+                            visible: onlineCacheList.isNotEmpty,
+                            child: TextButton(onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => CachedList(cachedOnlineList: onlineCacheList)));
+                            }, child: Text('Letzten Online Stand abrufen')),
+                          ),
+                          Visibility(
+                            visible: onlineCacheList.isEmpty,
+                            child: Text('Es wurde kein Cache gefunden'),
+                          )
+                          ]),
+                        ],
+                    ),
+                );
               }
 
+              isLoading = true;
               items_online = snapshot.data!;
                 
               return Padding(
@@ -216,13 +250,11 @@ class _HomePageState extends State<HomePage> {
                 Row(children: [
                   SizedBox(width: 7),
                   Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
+                  SizedBox(
+                    width: 7,
+                  ),
+                  Text('Online', style: TextStyle(fontSize: 17)),
                   Spacer(),
-                  IconButton(icon: Icon(Icons.cloud), iconSize: 35, onPressed: () {
-                    setState(() {
-                      onlineMode = !onlineMode;
-                      Preferences.setPref('online_mode', onlineMode);
-                    });
-                  }),
                   ThemedIconButton(),
                   SizedBox(
                     width: 10,
@@ -251,6 +283,19 @@ class _HomePageState extends State<HomePage> {
                         ),
                       );
                     } else {
+
+                      List<String> newOnlineCacheList = [];
+
+                      for(int i = 0; i < items_online.length; i++)
+                      {
+                        newOnlineCacheList.add(items_online.elementAt(i)['item']);
+                      }
+
+                      if(onlineCacheList != newOnlineCacheList)
+                      {
+                        Preferences.setPrefStringList('ocl', newOnlineCacheList);
+                      }
+
                       return Expanded(
                         child: ListView.builder(
                           itemCount: items_online.length,
@@ -340,13 +385,11 @@ class _HomePageState extends State<HomePage> {
                 Row(children: [
                   SizedBox(width: 7),
                   Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
+                  SizedBox(
+                    width: 7,
+                  ),
+                  Text('Offline', style: TextStyle(fontSize: 17)),
                   Spacer(),
-                  IconButton(icon: Icon(Icons.cloud_off), iconSize: 35, onPressed: () {
-                    setState(() {
-                      onlineMode = !onlineMode;
-                      Preferences.setPref('online_mode', onlineMode);
-                    });
-                  }),
                   ThemedIconButton(),
                   SizedBox(
                     width: 10,
@@ -540,6 +583,19 @@ class _HomePageState extends State<HomePage> {
                 FloatingActionButton(
                   onPressed: () {
                     setState(() {
+                      onlineMode = !onlineMode;
+                      Preferences.setPref('online_mode', onlineMode);
+                    });
+                  },
+                  heroTag: null,
+                  child: onlineMode == true ? Icon(Icons.cloud) : Icon(Icons.cloud_off),
+                ),
+                SizedBox(
+                  height: 10,
+                ),
+                FloatingActionButton(
+                  onPressed: () {
+                    setState(() {
                       isExpanded = !isExpanded;
                     });
                   },
@@ -693,6 +749,51 @@ class _HomePageState extends State<HomePage> {
           ],
         );
       },
+    );
+  }
+}
+
+class CachedList extends StatelessWidget {
+  final List<String> cachedOnlineList;
+
+  const CachedList({super.key, required this.cachedOnlineList});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    IconButton(onPressed: () {
+                      Navigator.pop(context);
+                    }, icon: Icon(Icons.arrow_back)),
+                    SizedBox(width: 12),
+                    Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
+                    SizedBox(
+                      width: 7,
+                    ),
+                    Text('Cache', style: TextStyle(fontSize: 17)),
+                    Spacer(),
+                    ThemedIconButton(),
+                    SizedBox(
+                      width: 10,
+                    )
+                  ]),
+                  SizedBox(height: 30),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: cachedOnlineList.length,
+                      itemBuilder: (context, index) {
+                        return Card(child: ListTile(
+                          title: Text(cachedOnlineList.elementAt(index))));
+                      }
+                  )
+              )],
+              ),
+            ),
     );
   }
 }

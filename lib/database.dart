@@ -1,5 +1,4 @@
 import 'package:mysql_client/mysql_client.dart';
-import 'package:http/http.dart' as http;
 import 'keys.dart';
 
 class DatabaseService {
