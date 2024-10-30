@@ -3,7 +3,7 @@ description: Eine App, die dir beim einkaufen hilft.
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 2.1.0
+version: 2.1.1
 
 environment:
   sdk: ^3.1.1
