@@ -90,7 +90,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   Key _futureBuilderKey = UniqueKey();
   List<String> items = [];
-  List<Map<String, dynamic>> items_online = [];
+  List<Map<String, dynamic>> itemsOnline = [];
   bool isExpanded = false;
   bool onlineMode = false;
   List<String> onlineCacheList = [];
@@ -134,18 +134,15 @@ class _HomePageState extends State<HomePage> {
                 List<String> newItems = result.recognizedWords.split(' und ');
 
                 for (int i = 0; i < newItems.length; i++) {
-                  if(onlineMode)
-                  {
-                    DatabaseService().executeQuery('INSERT INTO items(item) VALUES("${newItems[i]}")');
-                  }
-                  else
-                  {
+                  if (onlineMode) {
+                    DatabaseService().executeQuery(
+                        'INSERT INTO items(item) VALUES("${newItems[i]}")');
+                  } else {
                     items.add(newItems[i]);
                   }
                 }
-                if(!onlineMode)
-                {
-                Preferences.setPrefStringList('einkaufsliste', items);
+                if (!onlineMode) {
+                  Preferences.setPrefStringList('einkaufsliste', items);
                 }
                 setState(() {
                   _futureBuilderKey = UniqueKey();
@@ -199,313 +196,333 @@ class _HomePageState extends State<HomePage> {
 
           items = snapshot.data!;
 
-          if(onlineMode)
-          {
+          if (onlineMode) {
             return FutureBuilder(
-              key: _futureBuilderKey,
-              future: DatabaseService().executeQuery('SELECT * FROM items'),
-              builder:(context, snapshot) {
+                key: _futureBuilderKey,
+                future: DatabaseService().executeQuery('SELECT * FROM items'),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    Future.delayed(Duration(seconds: 3), () {
+                      setState(() {
+                        isLoading = false;
+                      });
+                    });
 
-              if (!snapshot.hasData) {
-
-                Future.delayed(Duration(seconds: 3), () {
-                  setState(() {
-                    isLoading = false;
-                  });
-                });
-
-                return Center(
-                  child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
                           CircularProgressIndicator(),
-                          
-                          isLoading ? Container() : Column(children: [
-                            Text('Kein Internet?\nLade die Cache oder wechsel in den Offline Modus!'),
-                          SizedBox(height: 15),
-                          Visibility(
-                            visible: onlineCacheList.isNotEmpty,
-                            child: TextButton(onPressed: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => CachedList(cachedOnlineList: onlineCacheList)));
-                            }, child: Text('Letzten Online Stand abrufen')),
-                          ),
-                          Visibility(
-                            visible: onlineCacheList.isEmpty,
-                            child: Text('Es wurde kein Cache gefunden'),
-                          )
-                          ]),
+                          isLoading
+                              ? Container()
+                              : Column(children: [
+                                  Text(
+                                      'Kein Internet?\nLade die Cache oder wechsel in den Offline Modus!'),
+                                  SizedBox(height: 15),
+                                  Visibility(
+                                    visible: onlineCacheList.isNotEmpty,
+                                    child: TextButton(
+                                        onPressed: () {
+                                          Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      CachedList(
+                                                          cachedOnlineList:
+                                                              onlineCacheList)));
+                                        },
+                                        child: Text(
+                                            'Letzten Online Stand abrufen')),
+                                  ),
+                                  Visibility(
+                                    visible: onlineCacheList.isEmpty,
+                                    child: Text('Es wurde kein Cache gefunden'),
+                                  )
+                                ]),
                         ],
-                    ),
-                );
-              }
+                      ),
+                    );
+                  }
 
-              isLoading = true;
-              items_online = snapshot.data!;
-                
-              return Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  SizedBox(width: 7),
-                  Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
-                  SizedBox(
-                    width: 7,
-                  ),
-                  Text('Online', style: TextStyle(fontSize: 17)),
-                  Spacer(),
-                  ThemedIconButton(),
-                  SizedBox(
-                    width: 10,
-                  )
-                ]),
-                SizedBox(height: 30),
-                Builder(
-                  builder: (context) {
-                    if (items_online.isEmpty) {
-                      return Card(
-                        child: ListTile(
-                          title: Center(
-                            child: Text('Deine Einkaufsliste ist leer'),
-                          ), 
-                          onLongPress: () {
-                            showModalBottomSheet(
-                                context: context,
-                                builder: (context) {
-                                  return Card(
-                                      child: ListTile(
-                                    title: Text(
-                                        'Du kannst den Standardeintrag nicht löschen'),
-                                  ));
-                                });
-                          },
-                        ),
-                      );
-                    } else {
+                  isLoading = true;
+                  itemsOnline = snapshot.data!;
 
-                      List<String> newOnlineCacheList = [];
-
-                      for(int i = 0; i < items_online.length; i++)
-                      {
-                        newOnlineCacheList.add(items_online.elementAt(i)['item']);
-                      }
-
-                      if(onlineCacheList != newOnlineCacheList)
-                      {
-                        Preferences.setPrefStringList('ocl', newOnlineCacheList);
-                      }
-
-                      return Expanded(
-                        child: ListView.builder(
-                          itemCount: items_online.length,
-                          itemBuilder: ((context, index) {
-                            final item = items_online[index];
-                            return Card(
-                              key: Key('$index'),
-                              child: Slidable(
-                                key: Key('$index'),
-                                startActionPane: ActionPane(
-                                  extentRatio: 0.4,
-                                  motion: const BehindMotion(),
-                                  children: [
-                                    SlidableAction(
-                                      onPressed: (context) {
-                                        int id = int.parse(items_online.elementAt(index)['item_id']);
-                                        _showEditDialog(context, id);
-                                      },
-                                      backgroundColor: Colors.blue,
-                                      icon: Icons.edit,
-                                      borderRadius: BorderRadius.only(
-                                          topLeft: Radius.circular(10),
-                                          bottomLeft: Radius.circular(10)),
-                                    ),
-                                    SlidableAction(
-                                      onPressed: (context) {
-                                        var id = items_online.elementAt(index)['item_id'];
-                                        DatabaseService().executeQuery('DELETE FROM items WHERE item_id = $id');
-                                        setState(() {
-                                          _futureBuilderKey = UniqueKey();
+                  return Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          SizedBox(width: 7),
+                          Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
+                          SizedBox(
+                            width: 7,
+                          ),
+                          Text('Online',
+                              style:
+                                  TextStyle(fontSize: 17, color: Colors.green)),
+                          Spacer(),
+                          ThemedIconButton(),
+                          SizedBox(
+                            width: 10,
+                          )
+                        ]),
+                        SizedBox(height: 30),
+                        Builder(
+                          builder: (context) {
+                            if (itemsOnline.isEmpty) {
+                              return Card(
+                                child: ListTile(
+                                  title: Center(
+                                    child: Text('Deine Einkaufsliste ist leer'),
+                                  ),
+                                  onLongPress: () {
+                                    showModalBottomSheet(
+                                        context: context,
+                                        builder: (context) {
+                                          return Card(
+                                              child: ListTile(
+                                            title: Text(
+                                                'Du kannst den Standardeintrag nicht löschen'),
+                                          ));
                                         });
-                                      },
-                                      backgroundColor: Colors.red,
-                                      icon: Icons.delete,
-                                    ),
-                                  ],
+                                  },
                                 ),
-                                child: Column(
-                                  children: [
-                                    Visibility(
-                                      visible: showReorganizer,
-                                      child: ListTile(
-                                        contentPadding:
-                                            EdgeInsets.only(left: 21),
-                                        title: Text(
-                                          item['item'],
-                                          style: TextStyle(fontSize: 14),
-                                        ),
-                                        leading: ReorderableDragStartListener(
-                                            index: index,
-                                            child: const Icon(Icons.menu)),
-                                      ),
-                                    ),
-                                    Visibility(
-                                      visible: !showReorganizer,
-                                      child: ListTile(
-                                        contentPadding:
-                                            EdgeInsets.only(left: 24),
-                                        title: Text(
-                                          item['item'],
-                                          style: TextStyle(fontSize: 14),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ],
-            ),
-          );
-            });
-          }
-          else
-          {
-          return Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  SizedBox(width: 7),
-                  Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
-                  SizedBox(
-                    width: 7,
-                  ),
-                  Text('Offline', style: TextStyle(fontSize: 17)),
-                  Spacer(),
-                  ThemedIconButton(),
-                  SizedBox(
-                    width: 10,
-                  )
-                ]),
-                SizedBox(height: 30),
-                Builder(
-                  builder: (context) {
-                    if (items.isEmpty) {
-                      return Card(
-                        child: ListTile(
-                          title: Center(
-                            child: Text('Deine Einkaufsliste ist leer'),
-                          ), 
-                          onLongPress: () {
-                            showModalBottomSheet(
-                                context: context,
-                                builder: (context) {
-                                  return Card(
-                                      child: ListTile(
-                                    title: Text(
-                                        'Du kannst den Standardeintrag nicht löschen'),
-                                  ));
-                                });
-                          },
-                        ),
-                      );
-                    } else {
-                      return Expanded(
-                        child: ReorderableListView.builder(
-                          buildDefaultDragHandles: false,
-                          itemCount: items.length,
-                          itemBuilder: ((context, index) {
-                            final item = items[index];
-                            return Card(
-                              key: Key('$index'),
-                              child: Slidable(
-                                key: Key('$index'),
-                                startActionPane: ActionPane(
-                                  extentRatio: 0.4,
-                                  motion: const BehindMotion(),
-                                  children: [
-                                    SlidableAction(
-                                      onPressed: (context) {
-                                        _showEditDialog(context, index);
-                                      },
-                                      backgroundColor: Colors.blue,
-                                      icon: Icons.edit,
-                                      borderRadius: BorderRadius.only(
-                                          topLeft: Radius.circular(10),
-                                          bottomLeft: Radius.circular(10)),
-                                    ),
-                                    SlidableAction(
-                                      onPressed: (context) {
-                                        items.removeAt(index);
-                                        Preferences.setPrefStringList('einkaufsliste', items);
-                                        setState(() {
-                                          _futureBuilderKey = UniqueKey();
-                                        });
-                                      },
-                                      backgroundColor: Colors.red,
-                                      icon: Icons.delete,
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    Visibility(
-                                      visible: showReorganizer,
-                                      child: ListTile(
-                                        contentPadding:
-                                            EdgeInsets.only(left: 21),
-                                        title: Text(
-                                          item,
-                                          style: TextStyle(fontSize: 14),
-                                        ),
-                                        leading: ReorderableDragStartListener(
-                                            index: index,
-                                            child: const Icon(Icons.menu)),
-                                      ),
-                                    ),
-                                    Visibility(
-                                      visible: !showReorganizer,
-                                      child: ListTile(
-                                        contentPadding:
-                                            EdgeInsets.only(left: 24),
-                                        title: Text(
-                                          item,
-                                          style: TextStyle(fontSize: 14),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }),
-                          onReorder: (oldIndex, newIndex) {
-                            setState(() {
-                              if (oldIndex < newIndex) {
-                                newIndex -= 1;
+                              );
+                            } else {
+                              List<String> newOnlineCacheList = [];
+
+                              for (int i = 0; i < itemsOnline.length; i++) {
+                                newOnlineCacheList
+                                    .add(itemsOnline.elementAt(i)['item']);
                               }
-                              final String item = items.removeAt(oldIndex);
-                              items.insert(newIndex, item);
-                              Preferences.setPrefStringList('einkaufsliste', items);
-                              _futureBuilderKey = UniqueKey();
-                            });
+
+                              if (onlineCacheList != newOnlineCacheList) {
+                                Preferences.setPrefStringList(
+                                    'ocl', newOnlineCacheList);
+                              }
+
+                              return Expanded(
+                                child: ListView.builder(
+                                  itemCount: itemsOnline.length,
+                                  itemBuilder: ((context, index) {
+                                    final item = itemsOnline[index];
+                                    return Card(
+                                      key: Key('$index'),
+                                      child: Slidable(
+                                        key: Key('$index'),
+                                        startActionPane: ActionPane(
+                                          extentRatio: 0.4,
+                                          motion: const BehindMotion(),
+                                          children: [
+                                            SlidableAction(
+                                              onPressed: (context) {
+                                                int id = int.parse(
+                                                    itemsOnline.elementAt(
+                                                        index)['item_id']);
+                                                _showEditDialog(context, id);
+                                              },
+                                              backgroundColor: Colors.blue,
+                                              icon: Icons.edit,
+                                              borderRadius: BorderRadius.only(
+                                                  topLeft: Radius.circular(10),
+                                                  bottomLeft:
+                                                      Radius.circular(10)),
+                                            ),
+                                            SlidableAction(
+                                              onPressed: (context) {
+                                                var id = itemsOnline.elementAt(
+                                                    index)['item_id'];
+                                                DatabaseService().executeQuery(
+                                                    'DELETE FROM items WHERE item_id = $id');
+                                                setState(() {
+                                                  _futureBuilderKey =
+                                                      UniqueKey();
+                                                });
+                                              },
+                                              backgroundColor: Colors.red,
+                                              icon: Icons.delete,
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Visibility(
+                                              visible: showReorganizer,
+                                              child: ListTile(
+                                                contentPadding:
+                                                    EdgeInsets.only(left: 21),
+                                                title: Text(
+                                                  item['item'],
+                                                  style:
+                                                      TextStyle(fontSize: 14),
+                                                ),
+                                                leading:
+                                                    ReorderableDragStartListener(
+                                                        index: index,
+                                                        child: const Icon(
+                                                            Icons.menu)),
+                                              ),
+                                            ),
+                                            Visibility(
+                                              visible: !showReorganizer,
+                                              child: ListTile(
+                                                contentPadding:
+                                                    EdgeInsets.only(left: 24),
+                                                title: Text(
+                                                  item['item'],
+                                                  style:
+                                                      TextStyle(fontSize: 14),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              );
+                            }
                           },
                         ),
-                      );
-                    }
-                  },
-                ),
-              ],
-            ),
-          );
+                      ],
+                    ),
+                  );
+                });
+          } else {
+            return Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    SizedBox(width: 7),
+                    Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
+                    SizedBox(
+                      width: 7,
+                    ),
+                    Text('Offline',
+                        style: TextStyle(fontSize: 17, color: Colors.red)),
+                    Spacer(),
+                    ThemedIconButton(),
+                    SizedBox(
+                      width: 10,
+                    )
+                  ]),
+                  SizedBox(height: 30),
+                  Builder(
+                    builder: (context) {
+                      if (items.isEmpty) {
+                        return Card(
+                          child: ListTile(
+                            title: Center(
+                              child: Text('Deine Einkaufsliste ist leer'),
+                            ),
+                            onLongPress: () {
+                              showModalBottomSheet(
+                                  context: context,
+                                  builder: (context) {
+                                    return Card(
+                                        child: ListTile(
+                                      title: Text(
+                                          'Du kannst den Standardeintrag nicht löschen'),
+                                    ));
+                                  });
+                            },
+                          ),
+                        );
+                      } else {
+                        return Expanded(
+                          child: ReorderableListView.builder(
+                            buildDefaultDragHandles: false,
+                            itemCount: items.length,
+                            itemBuilder: ((context, index) {
+                              final item = items[index];
+                              return Card(
+                                key: Key('$index'),
+                                child: Slidable(
+                                  key: Key('$index'),
+                                  startActionPane: ActionPane(
+                                    extentRatio: 0.4,
+                                    motion: const BehindMotion(),
+                                    children: [
+                                      SlidableAction(
+                                        onPressed: (context) {
+                                          _showEditDialog(context, index);
+                                        },
+                                        backgroundColor: Colors.blue,
+                                        icon: Icons.edit,
+                                        borderRadius: BorderRadius.only(
+                                            topLeft: Radius.circular(10),
+                                            bottomLeft: Radius.circular(10)),
+                                      ),
+                                      SlidableAction(
+                                        onPressed: (context) {
+                                          items.removeAt(index);
+                                          Preferences.setPrefStringList(
+                                              'einkaufsliste', items);
+                                          setState(() {
+                                            _futureBuilderKey = UniqueKey();
+                                          });
+                                        },
+                                        backgroundColor: Colors.red,
+                                        icon: Icons.delete,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Visibility(
+                                        visible: showReorganizer,
+                                        child: ListTile(
+                                          contentPadding:
+                                              EdgeInsets.only(left: 21),
+                                          title: Text(
+                                            item,
+                                            style: TextStyle(fontSize: 14),
+                                          ),
+                                          leading: ReorderableDragStartListener(
+                                              index: index,
+                                              child: const Icon(Icons.menu)),
+                                        ),
+                                      ),
+                                      Visibility(
+                                        visible: !showReorganizer,
+                                        child: ListTile(
+                                          contentPadding:
+                                              EdgeInsets.only(left: 24),
+                                          title: Text(
+                                            item,
+                                            style: TextStyle(fontSize: 14),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                            onReorder: (oldIndex, newIndex) {
+                              setState(() {
+                                if (oldIndex < newIndex) {
+                                  newIndex -= 1;
+                                }
+                                final String item = items.removeAt(oldIndex);
+                                items.insert(newIndex, item);
+                                Preferences.setPrefStringList(
+                                    'einkaufsliste', items);
+                                _futureBuilderKey = UniqueKey();
+                              });
+                            },
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            );
           }
         },
       ),
@@ -549,20 +566,15 @@ class _HomePageState extends State<HomePage> {
                 ),
                 FloatingActionButton(
                   onPressed: () {
-
-                    if(onlineMode)
-                    {
-                      _showSnackbar(context, 'Das funktioniert nur im Offline Modus');
-                    }
-                    else
-                    {
+                    if (onlineMode) {
+                      _showSnackbar(
+                          context, 'Das funktioniert nur im Offline Modus');
+                    } else {
                       showReorganizer = !showReorganizer;
                       setState(() {
                         _futureBuilderKey = UniqueKey();
                       });
                     }
-
-                    
                   },
                   heroTag: null,
                   child: Icon(Icons.menu),
@@ -588,7 +600,9 @@ class _HomePageState extends State<HomePage> {
                     });
                   },
                   heroTag: null,
-                  child: onlineMode == true ? Icon(Icons.cloud) : Icon(Icons.cloud_off),
+                  child: onlineMode == true
+                      ? Icon(Icons.cloud)
+                      : Icon(Icons.cloud_off),
                 ),
                 SizedBox(
                   height: 10,
@@ -631,12 +645,10 @@ class _HomePageState extends State<HomePage> {
             TextButton(
               onPressed: () {
                 if (textFieldController.text != "") {
-                  if(onlineMode)
-                  {
-                    DatabaseService().executeQuery('INSERT INTO items(item) VALUES("${textFieldController.text}")');
-                  }
-                  else
-                  {
+                  if (onlineMode) {
+                    DatabaseService().executeQuery(
+                        'INSERT INTO items(item) VALUES("${textFieldController.text}")');
+                  } else {
                     items.add(textFieldController.text);
                     Preferences.setPrefStringList('einkaufsliste', items);
                   }
@@ -658,16 +670,12 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _showEditDialog(BuildContext context, int index) async {
     TextEditingController textFieldController;
-    if(onlineMode)
-    {
-      var item = items_online.firstWhere((element) => element['item_id'] == index.toString());
-      textFieldController =
-        TextEditingController(text: item['item']);
-    }
-    else
-    {
-      textFieldController =
-        TextEditingController(text: items[index]);
+    if (onlineMode) {
+      var item = itemsOnline
+          .firstWhere((element) => element['item_id'] == index.toString());
+      textFieldController = TextEditingController(text: item['item']);
+    } else {
+      textFieldController = TextEditingController(text: items[index]);
     }
 
     return showDialog(
@@ -690,12 +698,10 @@ class _HomePageState extends State<HomePage> {
             TextButton(
               onPressed: () {
                 if (textFieldController.text != "") {
-                  if(onlineMode)
-                  {
-                    DatabaseService().executeQuery('UPDATE items SET item = "${textFieldController.text}" WHERE item_id = $index');
-                  }
-                  else
-                  {
+                  if (onlineMode) {
+                    DatabaseService().executeQuery(
+                        'UPDATE items SET item = "${textFieldController.text}" WHERE item_id = $index');
+                  } else {
                     items[index] = textFieldController.text;
                     Preferences.setPrefStringList('einkaufsliste', items);
                   }
@@ -731,12 +737,9 @@ class _HomePageState extends State<HomePage> {
             ),
             TextButton(
               onPressed: () {
-                if(onlineMode)
-                {
+                if (onlineMode) {
                   DatabaseService().executeQuery('DELETE FROM items');
-                }
-                else
-                {
+                } else {
                   Preferences.setPrefStringList('einkaufsliste', []);
                 }
                 Navigator.pop(context);
@@ -763,38 +766,41 @@ class CachedList extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(toolbarHeight: 15),
       body: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    IconButton(onPressed: () {
-                      Navigator.pop(context);
-                    }, icon: Icon(Icons.arrow_back)),
-                    SizedBox(width: 12),
-                    Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
-                    SizedBox(
-                      width: 7,
-                    ),
-                    Text('Cache', style: TextStyle(fontSize: 17)),
-                    Spacer(),
-                    ThemedIconButton(),
-                    SizedBox(
-                      width: 10,
-                    )
-                  ]),
-                  SizedBox(height: 30),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: cachedOnlineList.length,
-                      itemBuilder: (context, index) {
-                        return Card(child: ListTile(
-                          title: Text(cachedOnlineList.elementAt(index))));
-                      }
-                  )
-              )],
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              IconButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  icon: Icon(Icons.arrow_back)),
+              SizedBox(width: 12),
+              Text('Einkaufsliste', style: TextStyle(fontSize: 35)),
+              SizedBox(
+                width: 7,
               ),
-            ),
+              Text('Cache',
+                  style: TextStyle(fontSize: 17, color: Colors.yellow)),
+              Spacer(),
+              ThemedIconButton(),
+              SizedBox(
+                width: 10,
+              )
+            ]),
+            SizedBox(height: 30),
+            Expanded(
+                child: ListView.builder(
+                    itemCount: cachedOnlineList.length,
+                    itemBuilder: (context, index) {
+                      return Card(
+                          child: ListTile(
+                              title: Text(cachedOnlineList.elementAt(index))));
+                    }))
+          ],
+        ),
+      ),
     );
   }
 }
